@@ -151,10 +151,12 @@ async function loadReplay(n) {
   S.replay.setTime(-30);
   S.cam.axis = S.replay.course.axis; S.cam.follow = true; S.cam.scale = 1.4;
   S.mode = 'replay'; S.sim = null; S.paused = true; S.ended = false; S.scrubT = null;
+  closeOverlay();                                   // the Race tab's intro card isn't for the replay
   $('takeOver').classList.remove('hidden'); $('backToReplay').classList.add('hidden');
   const d = S.replay.d;
   $('whatIf').innerHTML = `Race ${d.race}: wind ${d.twsModelKn.toFixed(1)} kn (HRRR model), direction from the fleet's headings.
-    Pick a boat, scrub to a moment, then <b>Take over from here</b>.`;
+    Pick a boat, scrub to a moment, then <b>Take over from here</b>. Trackers drop out often; gaps are filled with a
+    likely path, and boats drawn faded are in a gap of more than 30 s (position estimated).`;
 }
 
 function takeOver() {
@@ -875,7 +877,7 @@ function trail(sim, b, t) {
 function stat(k, v, cls = '', wide = false) { return `<div class="stat${wide ? ' wide' : ''}"><div class="k">${k}</div><div class="v ${cls}">${v}</div></div>`; }
 
 function ui() {
-  if (S.mode === 'replay' && S.replay) return uiReplay();
+  if (S.mode === 'replay' && S.replay) { $('atlas').classList.add('hidden'); $('standBox').classList.remove('hidden'); return uiReplay(); }
   const sim = S.sim;
   if (!sim) return;
   const u = sim.user;
@@ -885,7 +887,7 @@ function ui() {
   $('btnPause').textContent = S.paused ? 'Resume' : 'Pause';
   const c = sim.course;
   const opt = polar.optimal(u.tws, u.level);
-  const helm = S.view === 'helm' && S.scrubT === null;
+  const helm = S.view === 'helm' && S.scrubT === null && S.mode !== 'replay';
   $('standBox').classList.toggle('hidden', helm && !S.ended);
   $('atlas').classList.toggle('hidden', !helm || S.ended);
   if (helm) { uiHelm(sim, u, c, t); drawCompass(sim); drawShiftChart(sim, t); logAndScrub(sim); $('hint').textContent = hint(sim); return; }
@@ -1163,5 +1165,6 @@ function renderAbout() {
 }
 
 window.__app = S;   // for the browser tests and debugging
+S.helm3d = helm3d;
 newRace();
 requestAnimationFrame(frame);

@@ -6,7 +6,7 @@ import { makeCourse, lineSide, PALETTE } from './course.js';
 import { makeBoat, bowPos } from './boat.js';
 import { WindField } from './wind.js';
 import { Sim } from './sim.js';
-import { wrap, norm360, bearing, upwind, cross, circMean, KN } from './geo.js';
+import { wrap, norm360, bearing, upwind, cross, circMean, unit, KN } from './geo.js';
 
 export function trackState(tr, t) {
   const f = t - tr.t0;
@@ -22,7 +22,67 @@ export function trackState(tr, t) {
     y: tr.y[i] + (tr.y[i + 1] - tr.y[i]) * a,
     hdg: norm360(h0 + dh * a),
     v: ((tr.s[i] ?? 0) + ((tr.s[i + 1] ?? 0) - (tr.s[i] ?? 0)) * a) * KN,
+    est: tr.est ? Math.max(tr.est[i], tr.est[i + 1]) : 0,
   };
+}
+
+// The trackers drop out a lot (median gap 10 s, 1 in 10 over 40 s, a third of
+// all boat-seconds in some races), which made boats blink out of the replay.
+// For display and for take-over ghosts, fill each gap between two fixes with a
+// plausible path: keep the last heading, turn once (tack, gybe or rounding)
+// onto the heading the boat reappears on. The analysis (report card,
+// benchmarks) still uses only the recorded fixes.
+// est per second: 0 recorded, 1 short gap (<= 30 s), 2 longer gap (drawn faded).
+const GAP_SHORT = 30, MAX_MS = 4.5;             // m/s: no Melges 15 path is faster than this
+export function fillTrack(tr) {
+  const n = tr.x.length;
+  const x = tr.x.slice(), y = tr.y.slice(), h = tr.h.slice(), s = tr.s.slice();
+  const est = new Uint8Array(n);
+  const good = (i) => Number.isFinite(tr.x[i]) && Number.isFinite(tr.y[i]) && Number.isFinite(tr.h[i]);
+  let last = -1;
+  for (let i = 0; i < n; i++) {
+    if (!good(i)) continue;
+    if (last >= 0 && i - last > 1) fillGap(last, i);
+    last = i;
+  }
+  return { t0: tr.t0, x, y, h, s, est };
+
+  function fillGap(i0, i1) {
+    const N = i1 - i0;
+    const A = [tr.x[i0], tr.y[i0]], B = [tr.x[i1], tr.y[i1]];
+    const D = [B[0] - A[0], B[1] - A[1]], dist = Math.hypot(D[0], D[1]);
+    const dA = unit(tr.h[i0]), dB = unit(tr.h[i1]);
+    // Two straight legs A -> P (along d1) -> B (along d2), if they make sense.
+    const legs = (d1, d2) => {
+      const det = d1[0] * d2[1] - d1[1] * d2[0];
+      if (Math.abs(det) < 0.17) return null;                    // (nearly) parallel
+      const l1 = (D[0] * d2[1] - D[1] * d2[0]) / det, l2 = (d1[0] * D[1] - d1[1] * D[0]) / det;
+      if (l1 <= 0 || l2 <= 0 || l1 + l2 > MAX_MS * N) return null;
+      return { d1, d2, l1, l2 };
+    };
+    let path = legs(dA, dB);
+    if (!path && dist > 1) {
+      // Same tack at both ends but moved sideways: tacked twice. Out on the
+      // last heading, back on its mirror image about the line A -> B.
+      const u = [D[0] / dist, D[1] / dist], k = 2 * (dA[0] * u[0] + dA[1] * u[1]);
+      path = legs(dA, [k * u[0] - dA[0], k * u[1] - dA[1]]);
+    }
+    if (!path) path = { d1: dist > 0.5 ? [D[0] / dist, D[1] / dist] : dA, d2: null, l1: dist, l2: 0 };
+    const L = path.l1 + path.l2, h1 = bearing(...path.d1), h2 = path.d2 ? bearing(...path.d2) : h1;
+    const tc = L > 0 ? N * path.l1 / L : N;                    // when the turn happens
+    const blend = (a, b, f) => norm360(a + wrap(b - a) * Math.min(1, Math.max(0, f)));
+    for (let k = 1; k < N; k++) {
+      const d = L * k / N;
+      const p = d <= path.l1 || !path.d2 ? [A[0] + path.d1[0] * Math.min(d, path.l1), A[1] + path.d1[1] * Math.min(d, path.l1)]
+        : [A[0] + path.d1[0] * path.l1 + path.d2[0] * (d - path.l1), A[1] + path.d1[1] * path.l1 + path.d2[1] * (d - path.l1)];
+      let hd = blend(h1, h2, (k - tc + 3) / 6);                  // turn over ~6 s
+      hd = blend(tr.h[i0], hd, k / 3);                           // ease off the last fix
+      hd = blend(hd, tr.h[i1], (k - (N - 3)) / 3);               // and onto the next
+      const i = i0 + k;
+      x[i] = p[0]; y[i] = p[1]; h[i] = hd; s[i] = L / N / KN;
+      est[i] = N - 1 <= GAP_SHORT ? 1 : 2;
+    }
+  }
 }
 
 export class Replay {
@@ -38,7 +98,7 @@ export class Replay {
     const order = Object.entries(data.finish).sort((a, b) => a[1] - b[1]).map(([s]) => s);
     this.place = Object.fromEntries(order.map((s, i) => [s, i + 1]));
     this.boats = Object.entries(data.boats).map(([sail, tr], i) => ({
-      id: i + 1, sail, tr, color: PALETTE[i % PALETTE.length], x: 0, y: 0, hdg: 0, v: 0,
+      id: i + 1, sail, tr, fill: fillTrack(tr), color: PALETTE[i % PALETTE.length], x: 0, y: 0, hdg: 0, v: 0,
       rel: 0, twa: 45, hidden: true, ctl: { mode: 'close' }, place: this.place[sail] ?? null,
     })).sort((a, b) => (a.place ?? 99) - (b.place ?? 99));
     this.tMin = Math.min(...this.boats.map(b => b.tr.t0));
@@ -110,7 +170,7 @@ export class Replay {
     this.t = t;
     const twd = this.twdAt(t);
     for (const b of this.boats) {
-      const s = trackState(b.tr, t);
+      const s = trackState(b.fill, t);
       if (!s) { b.hidden = true; continue; }
       Object.assign(b, s);
       b.hidden = false;
@@ -171,7 +231,7 @@ export class Replay {
     const sim = new Sim({ cal: this.cal, polar: this.polar, preset, wind, course: this.course, startAt: t,
                           noSpawn: true, record: true, ghostTracks, tMax: this.tMax + 300 });
     const me = this.boats.find(b => b.sail === sail);
-    const s = trackState(me.tr, t) ?? trackState(me.tr, t + 1) ?? { x: 0, y: -50, hdg: 0, v: 1 };
+    const { est: _e, ...s } = trackState(me.fill, t) ?? trackState(me.fill, t + 1) ?? { x: 0, y: -50, hdg: 0, v: 1 };
     const user = makeBoat({ id: 0, sail: 'YOU', name: sail, color: '#ffffff', isUser: true, ...s,
                             level: this.levelFor(sail), mode: 'manual' });
     const w = wind.at(user.x, user.y, t);
@@ -191,12 +251,12 @@ export class Replay {
         // your own real track, as a ghost to race against
         const g = makeBoat({ id: 1000, sail: `${sail} (real)`, color: '#4fb3ff', x: 0, y: 0, hdg: 0 });
         g.isGhost = true; g.noShadow = true; g.realRound = this.roundT[sail];
-        ghostTracks[g.id] = b.tr; sim.boats.push(g);
+        ghostTracks[g.id] = b.fill; sim.boats.push(g);
         continue;
       }
       const g = makeBoat({ id: b.id, sail: b.sail, color: b.color, x: 0, y: 0, hdg: 0 });
       g.isGhost = true; g.realRound = this.roundT[b.sail];
-      ghostTracks[g.id] = b.tr;
+      ghostTracks[g.id] = b.fill;
       sim.boats.push(g);
     }
     sim.updateGhosts(t);

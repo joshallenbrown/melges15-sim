@@ -129,6 +129,9 @@ export function botThink(sim, b, dt) {
   const t = sim.t;
   if (b.done) {
     if (b.ctl.mode !== 'bearaway') { b.ctl.mode = 'run'; b.ctl.side = -1; }
+    // 25 s after rounding, broad-reach off to the left of the course (~105° TWA)
+    // so finished boats leave the beat instead of running back through it.
+    b.ctl.offset = t - b.rounded > 25 ? -30 : 0;
     b.ctl.eased = false; b.ctl.stop = false; b.ctl.trim = 1;
     return;
   }

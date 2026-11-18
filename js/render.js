@@ -286,7 +286,7 @@ export function drawBoat(ctx, cam, b, S, W, H, dpr) {
   ctx.save();
   ctx.translate(sx, sy);
   ctx.rotate(cam.screenAngle(b.hdg));
-  ctx.globalAlpha = b.isGhost ? 0.55 : b.done ? 0.45 : 1;
+  ctx.globalAlpha = (b.isGhost ? 0.55 : b.done ? 0.45 : 1) * (b.est === 2 ? 0.5 : 1);   // est 2: long tracker dropout, position guessed
   const hull = new Path2D();
   hull.moveTo(0, -L / 2);
   hull.quadraticCurveTo(B / 2, -L / 6, B * 0.42, L / 2);

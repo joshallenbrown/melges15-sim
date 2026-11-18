@@ -96,7 +96,7 @@ export class Sim {
       const s = tr ? ghostState(tr, t) : null;
       if (!s) { b.hidden = true; b.done = true; continue; }
       b.hidden = false; b.done = b.realRound != null && t >= b.realRound;
-      b.x = s.x; b.y = s.y; b.hdg = s.hdg; b.v = s.v;
+      b.x = s.x; b.y = s.y; b.hdg = s.hdg; b.v = s.v; b.est = s.est;
       const w = this.wind.at(b.x, b.y, t, this._w);
       b.tws = w.tws; b.twd = w.twd; b.rel = wrap(b.hdg - w.twd); b.twa = Math.abs(b.rel);
       b.rounded = b.done ? b.realRound : null;
@@ -123,10 +123,10 @@ export class Sim {
     }
     for (const b of active) {
       if (b.isGhost) continue;
-      // The exercise ends at the windward mark: a rounded bot bears away,
-      // sails clear for 25 s and leaves the course (it would otherwise run
-      // back down through the fleet still beating up).
-      if (b.done && !b.isUser && this.t - b.rounded > 25) { b.hidden = true; continue; }
+      // The exercise ends at the windward mark: a rounded bot bears away and,
+      // after 25 s, reaches off to the side of the course (botThink) rather
+      // than running back down through the fleet still beating up. It stays
+      // visible (faded in the overhead) and no longer interacts with anyone.
       b._prevBow = bowPos(b);
       stepBoat(b, { tws: b.tws, twd: b.twd }, this.polar, dt, t0);
     }
@@ -267,7 +267,8 @@ export class Sim {
           this._lastContact.set(key, this.t);
           if (b.isGhost || a.isGhost) {
             const me = a.isGhost ? b : a, gh = a.isGhost ? a : b;
-            if (me.isUser) this.log('rule', `You'd have hit ${gh.sail} (a ghost, it can't react).`, me);
+            // (not while the ghost's position is filled in across a tracker dropout)
+            if (me.isUser && !gh.est) this.log('rule', `You'd have hit ${gh.sail} (a ghost, it can't react).`, me);
             continue;
           }
           const gw = giveWay(a, b);
@@ -393,6 +394,7 @@ function ghostState(tr, t) {
     x: tr.x[i] + (tr.x[i + 1] - tr.x[i]) * a, y: tr.y[i] + (tr.y[i + 1] - tr.y[i]) * a,
     hdg: norm360(tr.h[i] + wrap(tr.h[i + 1] - tr.h[i]) * a),
     v: ((tr.s[i] ?? 0) + ((tr.s[i + 1] ?? 0) - (tr.s[i] ?? 0)) * a) * KN,
+    est: tr.est ? Math.max(tr.est[i], tr.est[i + 1]) : 0,
   };
 }
 
