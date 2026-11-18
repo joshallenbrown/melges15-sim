@@ -36,7 +36,7 @@ for (const p of Object.values(presets)) {
 }
 for (let r = 1; r <= 6; r++) {
   const o = document.createElement('option');
-  o.value = r; o.textContent = `Race ${r} (${r <= 4 ? 'Sept 19' : 'Sept 20'})`;
+  o.value = r; o.textContent = `WCC race ${r} (${r <= 4 ? 'Sept 19' : 'Sept 20'}, real)`;
   $('replayRace').appendChild(o);
 }
 $('replayRace').value = '5';
@@ -96,12 +96,21 @@ function newRace() {
   showIntro(preset);
 }
 
+// What a Race-tab race is: generated, not a replay. Same venue + race # = same wind.
+const raceName = (preset, seed) => `${preset.short || preset.label} #${seed}`;
+const RACE_DAY = { 1: 'Sept 19', 2: 'Sept 19', 3: 'Sept 19', 4: 'Sept 19', 5: 'Sept 20', 6: 'Sept 20' };
+
 function showIntro(preset) {
   overlay(`
-    <h2>${preset.label}</h2>
+    <h2>${raceName(preset, S.sim.seed)}</h2>
     <p class="sub">${preset.note}${preset.calibrated ? '' : ' <span class="pill est">estimate</span>'}</p>
+    <p><b>A generated race, not a replay.</b> ${preset.basis ? `The wind (how big and how often it shifts, how strong the puffs are,
+    the wind speed) and the course follow ${preset.basis}, but the shifts themselves are new, drawn from race #${S.sim.seed}.` :
+    'The wind and course are a guess at Mission Bay until a bay race is calibrated.'}
+    The same venue and race # always give the same wind, so friends can sail the identical race and compare.
+    To sail an actual race, use <b>Replay WCC 2026</b> and take over a boat.</p>
     <p>Start, then sail the first beat to the windward mark against ${S.sim.boats.length - 1} boats from the real WCC fleet
-    (each sails at its own speed and skill from the results). Wind shifts and puffs are drawn from what the WCC tracks show.</p>
+    (each sails at its own speed and skill from the results).</p>
     <p><b>Helm view</b> is what you'd see from the boat: no line drawn, no standings, puffs only as darker water, and
     instruments like a Vakaros (speed, heading, timer, line distance, lift/header). It's the only view while you race:
     hold <b>V</b> for a quick look at the overhead, as you'd glance around on the water (My races counts the peeks).
@@ -394,12 +403,14 @@ function finishRace() {
     const realT = realMe?.realRound;
     const rank = 1 + sim.boats.filter(b => b.isGhost && b.id !== 1000 && b.realRound != null && b.realRound < u.rounded).length;
     const vs = realT != null ? (u.rounded - realT) : null;
-    head = `<h2>Rounded at ${fmtT(u.rounded)}: ${ordinal(rank)} vs the real fleet</h2>
+    head = `<p class="sub">Real race: WCC 2026 race ${S.cur?.from?.race ?? ''} (${RACE_DAY[S.cur?.from?.race] ?? ''}), as ${u.realSail} from ${fmtT(S.cur?.from?.t ?? 0)}</p>
+      <h2>Rounded at ${fmtT(u.rounded)}: ${ordinal(rank)} vs the real fleet</h2>
       <p>${vs === null ? '' : vs < 0 ? `<span class="good">${(-vs).toFixed(0)} s ahead of the real ${u.realSail}</span>` : `<span class="bad">${vs.toFixed(0)} s behind the real ${u.realSail}</span>`}
       (the real ${u.realSail} rounded at ${realT != null ? fmtT(realT) : 'n/a'}).</p>`;
   } else {
     const lead = Math.min(...sim.boats.filter(b => b.rounded !== null).map(b => b.rounded));
-    head = `<h2>You rounded ${ordinal(u.roundRank)} of ${sim.boats.length}</h2>
+    head = `<p class="sub">${raceName(sim.preset, sim.seed)} · generated race (same race # = same wind)</p>
+      <h2>You rounded ${ordinal(u.roundRank)} of ${sim.boats.length}</h2>
       <p>${u.roundRank === 1 ? 'Led at the windward mark.' : `${(u.rounded - lead).toFixed(0)} s behind the leader (≈${((u.rounded - lead) * R.vmg / BOAT_LEN).toFixed(0)} boat lengths).`}</p>`;
   }
   overlay(`${head}${reportHtml(R, 'sim')}
@@ -605,7 +616,7 @@ async function renderProgress() {
   const rows = [...P.table].reverse().slice(0, 60).map(r => {
     const tk = (r.tacks || []).filter(t => t.verdict);
     const fin = r.finished !== false && r.result?.rank != null;
-    return `<tr class="${fin ? '' : 'dnf'}"><td>${new Date(r.startedAt ?? r.savedAt).toLocaleString()}</td><td>${r.mode === 'takeover' ? `WCC r${r.takeover?.race} as ${r.takeover?.sail}` : (presets[r.preset]?.label.split(' (')[0] || r.preset)}</td>
+    return `<tr class="${fin ? '' : 'dnf'}"><td>${new Date(r.startedAt ?? r.savedAt).toLocaleString()}</td><td>${r.mode === 'takeover' ? `Real: WCC race ${r.takeover?.race} as ${r.takeover?.sail}` : `${presets[r.preset] ? raceName(presets[r.preset], r.seed) : r.preset}`}</td>
       <td>${fin ? `${r.result.rank}/${r.result.nBoats}` : `not finished${Number.isFinite(r.raceT) ? ` (left at ${fmtT(r.raceT)})` : ''}`}</td><td>${Number.isFinite(r.start?.dtl) ? r.start.dtl.toFixed(1) + ' m' : '—'}</td>
       <td>${Number.isFinite(r.gain60) ? (r.gain60 >= 0 ? '+' : '') + r.gain60.toFixed(0) + ' m' : '—'}</td>
       <td>${tk.length ? `${tk.filter(t => t.verdict === 'good').length}/${tk.length}` : '—'}</td><td>${r.nTacks ?? '—'}</td><td>${r.cues || ''}</td></tr>`;

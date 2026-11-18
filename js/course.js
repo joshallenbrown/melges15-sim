@@ -26,21 +26,21 @@ export function buildPresets(cal) {
   const d20 = pick([5, 6]);
   return {
     ocean19: {
-      key: 'ocean19', label: 'Ocean, Sept 19 sea breeze (WCC races 1-4)', calibrated: true,
+      key: 'ocean19', label: 'Ocean, Sept 19 sea breeze (like WCC races 1-4)', short: 'Sept 19 sea breeze', basis: 'WCC 2026 races 1-4 (Sept 19)', calibrated: true,
       wind: { tws: d19.tws, twd: 275, axis: 275, oscSd: d19.oscSd, periodS: d19.periodS, trendSd: d19.trendSd,
               pressureSd: d19.pressureSd, sideGrad: 0 },
       beat: d19.beat, line: d19.line, fleet: 21, lineSkewSd: Math.min(skew, 10),
       note: `HRRR ${d19.tws.toFixed(1)} kn; shifts ±${d19.oscSd.toFixed(1)}° every ~${(d19.periodS / 60).toFixed(0)} min; puffs ±${(d19.pressureSd * 100).toFixed(0)}%`,
     },
     ocean20: {
-      key: 'ocean20', label: 'Ocean, Sept 20 light air (WCC races 5-6)', calibrated: true,
+      key: 'ocean20', label: 'Ocean, Sept 20 light air (like WCC races 5-6)', short: 'Sept 20 light air', basis: 'WCC 2026 races 5-6 (Sept 20)', calibrated: true,
       wind: { tws: d20.tws, twd: 255, axis: 255, oscSd: d20.oscSd, periodS: d20.periodS, trendSd: d20.trendSd,
               pressureSd: d20.pressureSd, sideGrad: 0 },
       beat: d20.beat, line: d20.line, fleet: 21, lineSkewSd: Math.min(skew, 10),
       note: `HRRR ${d20.tws.toFixed(1)} kn; shifts ±${d20.oscSd.toFixed(1)}° every ~${(d20.periodS / 60).toFixed(0)} min; puffs ±${(d20.pressureSd * 100).toFixed(0)}%`,
     },
     bay: {
-      key: 'bay', label: 'Mission Bay (ESTIMATE, not calibrated)', calibrated: false,
+      key: 'bay', label: 'Mission Bay (ESTIMATE, not calibrated)', short: 'Mission Bay estimate', basis: null, calibrated: false,
       wind: { tws: 7, twd: 280, axis: 280, oscSd: 8, periodS: 240, trendSd: 0.3, pressureSd: 0.28, sideGrad: 0 },
       beat: 550, line: 90, fleet: 11, lineSkewSd: 6,
       note: 'Guessed: shiftier and puffier than the ocean, shorter course, smaller fleet. Send a bay race to calibrate.',
