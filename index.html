@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Melges 15 Tactics Sim</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+</head>
+<body>
+<header>
+  <div class="brand">Melges 15 <span>Tactics Sim</span></div>
+  <nav>
+    <button data-mode="race" class="tab on">Race</button>
+    <button data-mode="replay" class="tab">Replay WCC 2026</button>
+    <button data-mode="progress" class="tab">My races</button>
+    <button data-mode="about" class="tab">How it works</button>
+  </nav>
+  <div class="setup" id="raceSetup">
+    <label>Venue <select id="preset"></select></label>
+    <label>Your speed <select id="level">
+      <option value="0.05" selected>Fleet median</option>
+      <option value="0.25">Top quarter</option>
+      <option value="0.45">Fastest in the fleet</option>
+    </select></label>
+    <label>Fleet <select id="fleet">
+      <option value="">Venue default</option>
+      <option value="21">21 boats</option>
+      <option value="11">11 boats</option>
+      <option value="5">5 boats</option>
+    </select></label>
+    <label>Start at <select id="startAt">
+      <option value="-180">3:00</option>
+      <option value="-120" selected>2:00</option>
+      <option value="-60">1:00</option>
+    </select></label>
+    <label>Cues <select id="cueLevel" title="In-race coaching">
+      <option value="coach" selected>Coach</option>
+      <option value="prompt">Prompts only</option>
+      <option value="off">Off (race)</option>
+    </select></label>
+    <label>Seed <input id="seed" type="number" value="1" min="1" max="99999"></label>
+    <button id="newRace" class="primary">New race</button>
+  </div>
+  <div class="setup hidden" id="replaySetup">
+    <label>Race <select id="replayRace"></select></label>
+    <label>Boat <select id="replayBoat"></select></label>
+    <button id="reportCard" title="Where this boat gained and lost on the first beat">Report card</button>
+    <button id="takeOver" class="primary" title="Sail this boat yourself from here; the real fleet carries on as ghosts">Take over from here</button>
+    <button id="backToReplay" class="hidden">Back to replay</button>
+  </div>
+</header>
+
+<main>
+  <div id="stage">
+    <canvas id="view"></canvas>
+    <div id="overlay" class="overlay hidden"></div>
+    <div id="hint" class="hint"></div>
+    <div id="cues"></div>
+    <div id="atlas" class="hidden"></div>
+    <div id="viewBtns">
+      <button id="btnView" title="V: helm / overhead / coach">Helm view</button>
+      <button id="btnFit" title="F">Follow</button>
+      <button id="btnPause" title="P">Pause</button>
+      <span id="speedBtns">
+        <button data-speed="1" class="on">1×</button><button data-speed="2">2×</button><button data-speed="4">4×</button><button data-speed="8">8×</button>
+      </span>
+    </div>
+    <div id="touch">
+      <button data-k="left">◀</button><button data-k="ease">Luff</button><button data-k="tack">Tack</button><button data-k="close">Close-hauled</button><button data-k="right">▶</button>
+    </div>
+  </div>
+  <aside id="side">
+    <section id="clockBox">
+      <div class="clock" id="clock">-2:00</div>
+      <div class="sub" id="phase">Pre-start</div>
+    </section>
+    <section id="hud"></section>
+    <section id="compassBox">
+      <h3>Tactical compass</h3>
+      <canvas id="compass" width="280" height="96"></canvas>
+      <div class="sub" id="compassNote"></div>
+    </section>
+    <section id="whatIfBox">
+      <h3>What if? <span class="sub">(W)</span></h3>
+      <div id="whatIf" class="sub">After the start, press W to grade tack-or-hold against 40 wind futures.</div>
+    </section>
+    <section id="standBox">
+      <h3>Fleet</h3>
+      <div id="standings"></div>
+    </section>
+    <section id="logBox">
+      <h3>Log</h3>
+      <div id="log"></div>
+    </section>
+  </aside>
+</main>
+
+<footer>
+  <canvas id="chart" height="120"></canvas>
+  <div id="timeline">
+    <input type="range" id="scrub" min="0" max="0" value="0" step="1">
+    <button id="branch" title="Restore this moment and sail it again (same wind)">Branch from here</button>
+    <span id="scrubLabel" class="sub"></span>
+  </div>
+</footer>
+
+<div id="about" class="page hidden"></div>
+<div id="progress" class="page hidden"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
